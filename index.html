@@ -275,10 +275,9 @@
 </div>
 <div class="toast" id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyBjHQx2z5Tg8APWY-o-VCSj3Y4UJxaJgu8",
   authDomain: "codexginecob.firebaseapp.com",
@@ -287,21 +286,21 @@ const firebaseConfig = {
   messagingSenderId: "185862918310",
   appId: "1:185862918310:web:dc6e802111f200c0126467"
 };
-const _fbApp = initializeApp(firebaseConfig);
-const _db = getFirestore(_fbApp);
+firebase.initializeApp(firebaseConfig);
+const _db = firebase.firestore();
 
 const DEFAULT_CATS=['Cirurgia','Consulta Obstetrícia','Consulta Ginecologia','Medicina Reprodução','Exames','Partos'];
 let CATS=[...DEFAULT_CATS];
 
 async function loadCats(){
   try{
-    const snap=await getDoc(doc(_db,'codexgo','categories'));
-    if(snap.exists()&&snap.data().items){CATS=snap.data().items;}
+    const snap=await _db.collection('codexgo').doc('categories').get();
+    if(snap.exists&&snap.data().items){CATS=snap.data().items;}
     else{CATS=[...DEFAULT_CATS];}
   }catch(e){CATS=[...DEFAULT_CATS];}
 }
 async function saveCats(){
-  try{await setDoc(doc(_db,'codexgo','categories'),{items:CATS});}
+  try{await _db.collection('codexgo').doc('categories').set({items:CATS});}
   catch(e){console.error('Firebase cats save error:',e);}
 }
 
@@ -519,13 +518,13 @@ let selectedCodes=new Set();
 let multiSelected=new Set(); // for combine feature
 async function loadDescs(){
   try{
-    const snap=await getDoc(doc(_db,'codexgo','descriptions'));
-    if(snap.exists()&&snap.data().items){descs=snap.data().items;}
+    const snap=await _db.collection('codexgo').doc('descriptions').get();
+    if(snap.exists&&snap.data().items){descs=snap.data().items;}
     else{descs=JSON.parse(JSON.stringify(DEFAULT_DESC));await saveDescs();}
   }catch(e){console.error('Firebase load error:',e);descs=JSON.parse(JSON.stringify(DEFAULT_DESC));}
 }
 async function saveDescs(){
-  try{await setDoc(doc(_db,'codexgo','descriptions'),{items:descs});}
+  try{await _db.collection('codexgo').doc('descriptions').set({items:descs});}
   catch(e){console.error('Firebase save error:',e);toast('Erro ao guardar ⚠');}
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
