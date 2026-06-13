@@ -149,6 +149,9 @@
   .combined-label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
   .btn-word{background:#e8f0fe;color:#1a56db;border-color:transparent;padding:6px 8px;}
   .btn-word:hover{opacity:.8;}
+  .cat-custom{background:#fdf4ff;color:#6b21a8;}
+  .btn-section{background:#f0fdf4;color:#166534;border-color:#bbf7d0;}
+  .btn-section:hover{background:#dcfce7;}
 </style>
 </head>
 <body>
@@ -178,6 +181,10 @@
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         <input class="search-input" id="desc-search" type="text" placeholder="Pesquisar... (ex: histeroscopia, parto, colposcopia, cesariana)" oninput="filterDesc()">
       </div>
+      <button class="btn btn-section" onclick="addSection()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Nova secção
+      </button>
       <button class="btn btn-primary" onclick="addDesc()">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         Nova descrição
@@ -268,9 +275,35 @@
 </div>
 <div class="toast" id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
-<script>
-const STORAGE_DESC='codexgo_desc_v2';
-const CATS=['Cirurgia','Consulta Obstetrícia','Consulta Ginecologia','Medicina Reprodução','Exames','Partos'];
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBjHQx2z5Tg8APWY-o-VCSj3Y4UJxaJgu8",
+  authDomain: "codexginecob.firebaseapp.com",
+  projectId: "codexginecob",
+  storageBucket: "codexginecob.firebasestorage.app",
+  messagingSenderId: "185862918310",
+  appId: "1:185862918310:web:dc6e802111f200c0126467"
+};
+const _fbApp = initializeApp(firebaseConfig);
+const _db = getFirestore(_fbApp);
+
+const DEFAULT_CATS=['Cirurgia','Consulta Obstetrícia','Consulta Ginecologia','Medicina Reprodução','Exames','Partos'];
+let CATS=[...DEFAULT_CATS];
+
+async function loadCats(){
+  try{
+    const snap=await getDoc(doc(_db,'codexgo','categories'));
+    if(snap.exists()&&snap.data().items){CATS=snap.data().items;}
+    else{CATS=[...DEFAULT_CATS];}
+  }catch(e){CATS=[...DEFAULT_CATS];}
+}
+async function saveCats(){
+  try{await setDoc(doc(_db,'codexgo','categories'),{items:CATS});}
+  catch(e){console.error('Firebase cats save error:',e);}
+}
 
 const DEFAULT_DESC=[
   {id:'d1',cat:'Cirurgia',title:'Histerectomia total laparoscópica',text:`Submetida a histerectomia total laparoscópica sob anestesia geral.\n\nIndicação cirúrgica: [indicação clínica — ex: miomatose uterina sintomática / adenomiose / patologia endometrial].\n\nTécnica operatória: Após indução anestésica, algaliação e colocação em posição de Trendelenburg, procedeu-se a insuflação peritoneal com CO₂ e introdução de trocares (umbilical 10 mm + 3 trocares de 5 mm (fossas ilíacas bilateralmente e infra-umbilical). À laparoscopia observou-se [descrição dos achados].\n\nProcedeu-se à coagulação e secção dos ligamentos redondos, abertura do peritoneu vesico-uterino com dissecção da bexiga, coagulação e secção dos pedículos vasculares uterinos, colpotomia circular e extracção do útero por via vaginal. Sutura da cúpula vaginal com fio barbado V-Loc 2/0 por via laparoscópica. Revisão da hemostase sem intercorrências. Remoção dos trocares sob visão directa. Encerramento das fáscias.\n\nPerda hemática estimada: [mL]. Duração: [min]. Sem intercorrências intraoperatórias.\n\nSpecimen enviado para anatomopatológico.`,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()},
@@ -484,8 +517,17 @@ function findCode(id){return allCodes.find(c=>c.id===id);}
 let descs=[],catFilter='Todos',descSearch='',expandedId=null,editingId=null;
 let selectedCodes=new Set();
 let multiSelected=new Set(); // for combine feature
-function loadDescs(){try{const s=localStorage.getItem(STORAGE_DESC);descs=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_DESC));}catch{descs=JSON.parse(JSON.stringify(DEFAULT_DESC));}}
-function saveDescs(){localStorage.setItem(STORAGE_DESC,JSON.stringify(descs));}
+async function loadDescs(){
+  try{
+    const snap=await getDoc(doc(_db,'codexgo','descriptions'));
+    if(snap.exists()&&snap.data().items){descs=snap.data().items;}
+    else{descs=JSON.parse(JSON.stringify(DEFAULT_DESC));await saveDescs();}
+  }catch(e){console.error('Firebase load error:',e);descs=JSON.parse(JSON.stringify(DEFAULT_DESC));}
+}
+async function saveDescs(){
+  try{await setDoc(doc(_db,'codexgo','descriptions'),{items:descs});}
+  catch(e){console.error('Firebase save error:',e);toast('Erro ao guardar ⚠');}
+}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 function switchTab(t){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===(t==='desc'?0:1)));
@@ -494,7 +536,7 @@ function switchTab(t){
 }
 function catClass(cat){
   const m={'Cirurgia':'cat-cirurgia','Consulta Obstetrícia':'cat-obs','Consulta Ginecologia':'cat-gine','Medicina Reprodução':'cat-repro','Exames':'cat-exames','Partos':'cat-partos'};
-  return m[cat]||'cat-exames';
+  return m[cat]||'cat-custom';
 }
 function renderCats(){
   const counts={};CATS.forEach(c=>{counts[c]=descs.filter(d=>d.cat===c).length;});
@@ -525,27 +567,39 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function toggleExp(id){expandedId=expandedId===id?null:id;if(editingId===id)return;renderDescs();}
 function startEdit(id){editingId=id;expandedId=null;renderDescs();setTimeout(()=>{const t=document.getElementById('ex-'+id);if(t){t.style.height='auto';t.style.height=t.scrollHeight+'px';}},50);}
 function cancelEdit(){editingId=null;renderDescs();}
-function saveEdit(id){
+async function saveEdit(id){
   const d=descs.find(x=>x.id===id);if(!d)return;
   d.title=document.getElementById('et-'+id).value;
   d.text=document.getElementById('ex-'+id).value;
   d.cat=document.getElementById('ec-'+id).value;
   d.updatedAt=new Date().toISOString();
-  saveDescs();editingId=null;renderCats();renderDescs();toast('Guardado ✓');
+  await saveDescs();editingId=null;renderCats();renderDescs();toast('Guardado ✓');
 }
-function delDesc(id){if(!confirm('Eliminar esta descrição?'))return;descs=descs.filter(d=>d.id!==id);saveDescs();renderCats();renderDescs();toast('Eliminado');}
+async function delDesc(id){if(!confirm('Eliminar esta descrição?'))return;descs=descs.filter(d=>d.id!==id);await saveDescs();renderCats();renderDescs();toast('Eliminado');}
 function copyDesc(id,btn){
   const d=descs.find(x=>x.id===id);if(!d)return;
   navigator.clipboard.writeText(d.text).then(()=>{const o=btn.innerHTML;btn.innerHTML='<svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 9"/></svg>';toast('Copiado ✓');setTimeout(()=>btn.innerHTML=o,2000);});
 }
-function addDesc(){
+async function addDesc(){
   const id='d'+Date.now();
-  descs.unshift({id,cat:'Cirurgia',title:'Nova descrição',text:'[Editar o texto aqui. Estrutura JCI: Indicação → Técnica → Achados → Conclusão.]',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
-  saveDescs();renderCats();renderDescs();startEdit(id);
+  const cat=(catFilter&&catFilter!=='Todos')?catFilter:'Cirurgia';
+  descs.unshift({id,cat,title:'Nova descrição',text:'[Editar o texto aqui. Estrutura JCI: Indicação → Técnica → Achados → Conclusão.]',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  await saveDescs();renderCats();renderDescs();startEdit(id);
 }
-function resetDesc(){
+async function addSection(){
+  const name=prompt('Nome da nova secção:');
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  if(CATS.includes(trimmed)){toast('Esta secção já existe');return;}
+  CATS.push(trimmed);
+  await saveCats();
+  renderCats();
+  setCat(trimmed);
+  toast('Secção criada ✓');
+}
+async function resetDesc(){
   if(!confirm('Repor todas as descrições para os valores predefinidos? As suas alterações serão perdidas.'))return;
-  descs=JSON.parse(JSON.stringify(DEFAULT_DESC));saveDescs();catFilter='Todos';renderCats();renderDescs();toast('Repostas ✓');
+  descs=JSON.parse(JSON.stringify(DEFAULT_DESC));await saveDescs();catFilter='Todos';renderCats();renderDescs();toast('Repostas ✓');
 }
 const STORAGE_K='codexgo_k_v1';
 let kValues={};
@@ -713,12 +767,12 @@ function copyCombined(){
   const text=document.getElementById('combined-text').textContent;
   navigator.clipboard.writeText(text).then(()=>toast('Copiado ✓'));
 }
-function saveAsCombined(){
+async function saveAsCombined(){
   const text=document.getElementById('combined-text').textContent;
   const titles=[...multiSelected].map(id=>{const d=descs.find(x=>x.id===id);return d?d.title:'';}).filter(Boolean);
   const id='d'+Date.now();
   descs.unshift({id,cat:'Cirurgia',title:titles.join(' + '),text,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
-  saveDescs();renderCats();renderDescs();closeModal();clearMultiSelect();
+  await saveDescs();renderCats();renderDescs();closeModal();clearMultiSelect();
   toast('Descrição combinada guardada ✓');
 }
 
@@ -782,7 +836,13 @@ async function exportCombinedDocx(){
   }catch(e){console.error(e);toast('Erro ao exportar Word');}
 }
 
-loadK();loadDescs();renderCats();renderDescs();renderCodeList('');
+loadK();
+(async()=>{
+  toast('A carregar…');
+  await loadCats();
+  await loadDescs();
+  renderCats();renderDescs();renderCodeList('');
+})();
 </script>
 </body>
 </html>
